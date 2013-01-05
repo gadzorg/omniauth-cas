@@ -12,6 +12,7 @@ module OmniAuth
 
       autoload :Configuration, 'omniauth/strategies/cas/configuration'
       autoload :ServiceTicketValidator, 'omniauth/strategies/cas/service_ticket_validator'
+      autoload :SamlTicketValidator, 'omniauth/strategies/cas/saml_ticket_validator'
 
       attr_accessor :raw_info
       alias_method :user_info, :raw_info
@@ -23,7 +24,10 @@ module OmniAuth
       option :ssl,  true
       option :return_url, true
       option :renew,      false
+      option :saml,       false
       option :service_validate_url, '/serviceValidate'
+      option :saml_validate_url,    '/samlValidate'
+      option :saml_time_url,        '/'
       option :login_url,            '/login'
       option :logout_url,           '/logout'
       option :uid_key,              'user'
@@ -66,7 +70,11 @@ module OmniAuth
 
         return fail!(:no_ticket, MissingCASTicket.new('No CAS Ticket')) unless @ticket
 
-        self.raw_info = ServiceTicketValidator.new(self, @options, callback_url, @ticket).user_info
+        if @options.saml
+          self.raw_info = SamlTicketValidator.new(self, @options, callback_url, @ticket).user_info
+        else
+          self.raw_info = ServiceTicketValidator.new(self, @options, callback_url, @ticket).user_info
+        end
 
         return fail!(:invalid_ticket, InvalidCASTicket.new('Invalid CAS Ticket')) if raw_info.empty?
 
@@ -113,6 +121,26 @@ module OmniAuth
 
         # cas_host + append_params(@options.service_validate_url, { :service => service_url.to_s, :ticket => ticket })
         cas_host + append_params(@options.service_validate_url, { :service => service_url.to_s, :ticket => ticket })
+      end
+
+      # Build a saml-validation URL from +service+ and +ticket+.
+      # If +service+ has a ticket param, first remove it. URL-encode
+      # +service+ and add it and the +ticket+ as paraemters to the
+      # CAS serviceValidate URL.
+      #
+      # @param [String] service the service (a.k.a. return-to) URL
+      #
+      # @return [String] a URL like `http://cas.mycompany.com/serviceValidate?service=...&ticket=...`
+      def saml_validate_url(service_url)
+        service_url = Addressable::URI.parse( service_url )
+        service_url.query_values = service_url.query_values.tap { |qs| qs.delete('ticket') }
+
+        # cas_host + append_params(@options.service_validate_url, { :service => service_url.to_s, :ticket => ticket })
+        cas_host + append_params(@options.saml_validate_url, { :TARGET => service_url.to_s })
+      end
+
+      def saml_time_url
+        cas_host + @options.saml_time_url
       end
 
       # Build a CAS login URL from +service+.
