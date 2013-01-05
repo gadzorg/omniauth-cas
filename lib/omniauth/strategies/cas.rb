@@ -22,6 +22,7 @@ module OmniAuth
       option :port, nil
       option :ssl,  true
       option :return_url, true
+      option :renew,      false
       option :service_validate_url, '/serviceValidate'
       option :login_url,            '/login'
       option :logout_url,           '/logout'
@@ -120,7 +121,10 @@ module OmniAuth
       #
       # @return [String] a URL like `http://cas.mycompany.com/login?service=...`
       def login_url(service)
-        cas_host + append_params( @options.login_url, { :service => service })
+        params = { :service => service }
+        params[:renew] = 'true' if @options.renew
+
+        cas_host + append_params( @options.login_url, params)
       end
 
       # Adds URL-escaped +parameters+ to +base+.
