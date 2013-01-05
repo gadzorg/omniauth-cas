@@ -21,6 +21,7 @@ module OmniAuth
       option :host, nil
       option :port, nil
       option :ssl,  true
+      option :return_url, true
       option :service_validate_url, '/serviceValidate'
       option :login_url,            '/login'
       option :logout_url,           '/logout'
@@ -148,8 +149,9 @@ module OmniAuth
       end
 
       def return_url
-        # If the request already has a `url` parameter, then it will already be appended to the callback URL.
-        if request.params and request.params['url']
+        # If @options.return_url is false or if the request already has a `url` parameter,
+        # then it will already be appended to the callback URL.
+        if (not @options.return_url) or (request.params and request.params['url'])
           {}
         else
           { :url => request.referer }
